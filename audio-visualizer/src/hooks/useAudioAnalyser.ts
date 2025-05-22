@@ -1,82 +1,70 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
-// Custom hook to analyze audio file and return frequency data, playing state, audio element, and gain node
-export function useAudioAnalyser(audioFile: File | null) {
-  const [isPlaying, setIsPlaying] = useState(false);
+// Chỉ nhận string url, không nhận File!
+export function useAudioAnalyser(audioSrc: string) {
   const [frequencyData, setFrequencyData] = useState<Uint8Array | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null); // Use ref, not state!
-
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const [gainNode, setGainNode] = useState<GainNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const dataArrayRef = useRef<Uint8Array | null>(null);
 
   useEffect(() => {
-    if (!audioFile) {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      setFrequencyData(null);
-      setIsPlaying(false);
+    if (!audioSrc) {
       setAudioElement(null);
-      gainNodeRef.current = null;
+      setIsPlaying(false);
+      setGainNode(null);
+      setFrequencyData(null);
       return;
     }
+    // Tạo audio element với src đã là string url
+    const audio = new window.Audio(audioSrc);
+    audio.crossOrigin = "anonymous";
+    audio.preload = "auto";
+    setAudioElement(audio);
 
-    const audioContext = new AudioContext();
-    audioContextRef.current = audioContext;
+    // AudioContext setup
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const srcNode = ctx.createMediaElementSource(audio);
+    const analyser = ctx.createAnalyser();
+    const gain = ctx.createGain();
+    srcNode.connect(gain);
+    gain.connect(analyser);
+    analyser.connect(ctx.destination);
 
-    const audioElem = new Audio(URL.createObjectURL(audioFile));
-    audioElem.crossOrigin = "anonymous";
-    setAudioElement(audioElem);
-
-    const source = audioContext.createMediaElementSource(audioElem);
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 128;
+    analyser.fftSize = 256;
     analyserRef.current = analyser;
+    setGainNode(gain);
 
-    // Create GainNode via ref (NOT useState)
-    const gain = audioContext.createGain();
-    gainNodeRef.current = gain;
+    let frameId: number;
+    function update() {
+      const arr = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(arr);
+      setFrequencyData(arr);
+      frameId = requestAnimationFrame(update);
+    }
+    update();
 
-    source.connect(analyser);
-    analyser.connect(gain);
-    gain.connect(audioContext.destination);
-
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    dataArrayRef.current = dataArray;
-
-    let animationId: number;
-    const tick = () => {
-      if (analyserRef.current && dataArrayRef.current) {
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-        setFrequencyData(new Uint8Array(dataArrayRef.current));
-      }
-      animationId = requestAnimationFrame(tick);
-    };
-    tick();
-
-    audioElem.volume = 1;
-    audioElem.play();
-    setIsPlaying(true);
-
-    audioElem.onplay = () => setIsPlaying(true);
-    audioElem.onpause = () => setIsPlaying(false);
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
 
     return () => {
-      audioElem.pause();
-      audioElem.src = "";
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      gainNodeRef.current = null;
-      cancelAnimationFrame(animationId);
+      cancelAnimationFrame(frameId);
+      audio.pause();
+      audio.src = "";
+      srcNode.disconnect();
+      gain.disconnect();
+      analyser.disconnect();
+      ctx.close();
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      setAudioElement(null);
+      setIsPlaying(false);
+      setGainNode(null);
+      setFrequencyData(null);
     };
-  }, [audioFile]);
+  }, [audioSrc]);
 
-  // Expose gainNode via ref (never undefined if hook worked)
-  return { frequencyData, isPlaying, audioElement, gainNode: gainNodeRef.current };
+  return { frequencyData, isPlaying, audioElement, gainNode };
 }
