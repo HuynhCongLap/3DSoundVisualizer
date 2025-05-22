@@ -297,9 +297,6 @@ export default function App() {
         <ambientLight intensity={1} />
         {frequencyData && (
           <>
-            {visualizerType === "aurora" && (
-              <LayeredAuroraParticlesVisualizer frequencyData={frequencyData} />
-            )}
             {visualizerType === "galaxy" && (
               <AudioGalaxyParticlesVisualizer frequencyData={frequencyData} />
             )}
