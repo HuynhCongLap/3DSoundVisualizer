@@ -88,15 +88,11 @@ export default function AudioGalaxyParticlesVisualizer({ frequencyData }: { freq
           <bufferGeometry ref={geometryRefs.current[l]}>
             <bufferAttribute
               attach="attributes-position"
-              array={pos}
-              count={pos.length / 3}
-              itemSize={3}
+              args={[pos, 3, true]}
             />
             <bufferAttribute
               attach="attributes-color"
-              array={colors.current[l]}
-              count={colors.current[l].length / 3}
-              itemSize={3}
+              args={[colors.current[l], 3, true]}
             />
           </bufferGeometry>
           <pointsMaterial

@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from "react";
+import { useRef, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { shaderMaterial } from "@react-three/drei";
@@ -182,9 +182,7 @@ const AudioParticlesShader = shaderMaterial(
     gl_FragColor = vec4(finalColor, totalAlpha);
     if (totalAlpha < 0.01) discard;
   }
-  `
-);
-
+  `);
 extend({ AudioParticlesShader });
 
 type Props = {
@@ -204,6 +202,7 @@ type Props = {
   alphaBase: number;
   alphaGlow: number;
 };
+
 
 export default function AudioParticlesVisualizerLayer(props: Props) {
   const pointsRef = useRef<any>(null);
@@ -253,35 +252,13 @@ export default function AudioParticlesVisualizerLayer(props: Props) {
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
-          count={TRAIL_STEPS * props.PARTICLE_COUNT}
-          array={positions}
-          itemSize={3}
+          args={[positions, 3, true]}
         />
         <bufferAttribute
           attach="attributes-trailStep"
-          count={TRAIL_STEPS * props.PARTICLE_COUNT}
-          array={trailStepsArray}
-          itemSize={1}
+          args={[trailStepsArray, 1, true]}
         />
       </bufferGeometry>
-      <audioParticlesShader
-        uParticleCount={props.PARTICLE_COUNT}
-        uColorA={props.colorA}
-        uColorB={props.colorB}
-        uGlowColor={props.glowColor}
-        uHueBase={props.hueBase}
-        uHueRange={props.hueRange}
-        uSatBase={props.satBase}
-        uSatRange={props.satRange}
-        uValBase={props.valBase}
-        uValRange={props.valRange}
-        uAlphaBase={props.alphaBase}
-        uAlphaGlow={props.alphaGlow}
-        uTrailSteps={TRAIL_STEPS}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
     </points>
   );
 }

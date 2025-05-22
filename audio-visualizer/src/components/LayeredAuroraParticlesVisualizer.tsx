@@ -1,4 +1,3 @@
-import React from "react";
 import AudioParticlesVisualizerLayer from "./AudioParticlesVisualizerLayer";
 
 export default function LayeredAuroraParticlesVisualizer({ frequencyData }: { frequencyData: Uint8Array }) {

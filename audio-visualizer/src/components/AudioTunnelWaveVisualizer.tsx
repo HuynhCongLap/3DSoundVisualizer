@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from "react";
+import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -132,7 +132,8 @@ export default function AudioTunnelWaveVisualizer({ frequencyData }: { frequency
       {ringGeometries.map((geo, i) => (
         <line
           key={i}
-          ref={ref => (lineRefs.current[i] = ref)}
+          ref={ref => { lineRefs.current[i] = ref as THREE.Line | null; }}
+          // @ts-ignore
           geometry={geo}
         >
           <lineBasicMaterial
