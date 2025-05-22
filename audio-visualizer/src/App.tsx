@@ -67,7 +67,9 @@ export default function App() {
 
   // Song Info
   const songName = currentSong
-    ? ("name" in currentSong ? currentSong.name : currentSong.name.replace(/\.[^/.]+$/, ""))
+    ? "name" in currentSong
+      ? (currentSong as { name: string }).name
+      : (currentSong as File).name.replace(/\.[^/.]+$/, "")
     : "";
   const artistName = "Unknown Artist";
 
@@ -279,7 +281,10 @@ export default function App() {
                     ${i === currentIndex ? "bg-indigo-700/60 text-white font-bold" : "hover:bg-indigo-900/30 text-slate-300"}`}
                 >
                   <span className="truncate flex-1">
-                    {"name" in song ? song.name : song.name.replace(/\.[^/.]+$/, "")}
+                    {"name" in song
+                      ? (song as { name: string }).name
+                      : (song as File).name.replace(/\.[^/.]+$/, "")
+                    }
                   </span>
                   {i === currentIndex && <span className="text-indigo-200 text-xs">●</span>}
                 </li>
