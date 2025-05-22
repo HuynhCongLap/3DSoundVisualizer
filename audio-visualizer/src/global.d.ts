@@ -1,4 +1,4 @@
-import {DreiShaderMaterial} from "./components/AudioParticlesVisualizerLayer.tsx";
+import {AudioParticlesShader} from "./components/AudioParticlesVisualizerLayer.tsx";
 
 declare global {
     namespace JSX {

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import LayeredAuroraParticlesVisualizer from "./components/LayeredAuroraParticlesVisualizer";
 import AudioGalaxyParticlesVisualizer from "./components/AudioGalaxyParticlesVisualizer";
 import AudioTunnelWaveVisualizer from "./components/AudioTunnelWaveVisualizer";
 import CameraResetter from "./components/CameraResetter";
@@ -13,7 +12,6 @@ import {
 
 // Visualizer presets
 const visualizerOptions = [
-  { value: "aurora", label: "Layered Aurora Morph" },
   { value: "galaxy", label: "Galaxy Spiral" },
   { value: "tunnel", label: "Tunnel Wave" }
 ];
@@ -56,7 +54,7 @@ export default function App() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [volume, setVolume] = useState(0.7);
-  const [visualizerType, setVisualizerType] = useState<VisualizerType>("aurora");
+  const [visualizerType, setVisualizerType] = useState<VisualizerType>("tunnel");
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [repeat, setRepeat] = useState(false);
