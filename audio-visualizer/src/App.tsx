@@ -2,18 +2,20 @@ import { useState, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import AudioGalaxyParticlesVisualizer from "./components/AudioGalaxyParticlesVisualizer";
 import AudioTunnelWaveVisualizer from "./components/AudioTunnelWaveVisualizer";
+import AudioParticleCloudVisualizer from "./components/AudioParticleCloudVisualizer";
 import CameraResetter from "./components/CameraResetter";
 import { useAudioAnalyser } from "./hooks/useAudioAnalyser";
 import {
   Play, Pause, SkipForward, SkipBack, Shuffle, Repeat, Plus, Volume2
 } from "lucide-react";
+import LayeredAuroraParticlesVisualizer from "./components/LayeredAuroraParticlesVisualizer";
 
 // Visualizer presets
 const visualizerOptions = [
-  { value: "galaxy", label: "Galaxy Spiral" },
-  { value: "tunnel", label: "Tunnel Wave" }
+  { value: "tunnel", label: "Tunnel Wave" },
+  { value: "cloud", label: "Particle Cloud" },
+  { value: "aurora", label: "Aurora" },
 ];
 type VisualizerType = typeof visualizerOptions[number]["value"];
 type Song = File | { name: string; url: string };
@@ -54,7 +56,7 @@ export default function App() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [volume, setVolume] = useState(0.7);
-  const [visualizerType, setVisualizerType] = useState<VisualizerType>("tunnel");
+  const [visualizerType, setVisualizerType] = useState<VisualizerType>("cloud"); // Default: cloud
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [repeat, setRepeat] = useState(false);
@@ -297,17 +299,20 @@ export default function App() {
         <ambientLight intensity={1} />
         {frequencyData && (
           <>
-            {visualizerType === "galaxy" && (
-              <AudioGalaxyParticlesVisualizer frequencyData={frequencyData} />
-            )}
             {visualizerType === "tunnel" && (
               <AudioTunnelWaveVisualizer frequencyData={frequencyData} />
+            )}
+            {visualizerType === "cloud" && (
+              <AudioParticleCloudVisualizer frequencyData={frequencyData} />
+            )}
+            {visualizerType === "aurora" && (
+              <LayeredAuroraParticlesVisualizer frequencyData={frequencyData} />
             )}
           </>
         )}
         <OrbitControls ref={controlsRef} />
         <EffectComposer>
-          <Bloom intensity={0.5} luminanceThreshold={0.08} luminanceSmoothing={0.92} height={1200} />
+          <Bloom intensity={0.2} luminanceThreshold={0.08} luminanceSmoothing={0.92} height={1200} />
         </EffectComposer>
         <CameraResetter visualizerType={visualizerType} controlsRef={controlsRef} />
       </Canvas>

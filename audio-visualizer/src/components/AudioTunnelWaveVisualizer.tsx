@@ -10,7 +10,7 @@ const SPEED = 2.2;
 const TWIST_FACTOR = 0.18;
 const GLOW_OPACITY = 0.94;
 
-const PARTICLE_COUNT = 20;
+const PARTICLE_COUNT = 40;
 const PARTICLE_RADIUS = 1.5;
 
 export default function AudioTunnelWaveVisualizer({ frequencyData }: { frequencyData: Uint8Array }) {
