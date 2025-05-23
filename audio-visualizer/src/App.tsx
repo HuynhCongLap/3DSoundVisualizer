@@ -6,19 +6,25 @@ import AudioTunnelWaveVisualizer from "./components/AudioTunnelWaveVisualizer";
 import AudioParticleCloudVisualizer from "./components/AudioParticleCloudVisualizer";
 import CameraResetter from "./components/CameraResetter";
 import { useAudioAnalyser } from "./hooks/useAudioAnalyser";
+import useFakeFrequencyData from "./hooks/useFakeFrequencyData";
 import {
-  Play, Pause, SkipForward, SkipBack, Shuffle, Repeat, Plus, Volume2
+  Play, Pause, SkipForward, SkipBack, Shuffle, Repeat, Plus, Volume2, Eye, Music
 } from "lucide-react";
 import LayeredAuroraParticlesVisualizer from "./components/LayeredAuroraParticlesVisualizer";
+import YouTubeSearchBar from "./components/YouTubeSearchBar";
 
-// Visualizer presets
+// Định nghĩa type Song cho cả mp3/local và YouTube
+type Song =
+  | File
+  | { name: string; url: string }
+  | { name: string; youtubeId: string; type: "youtube"; thumbnail: string };
+
 const visualizerOptions = [
   { value: "tunnel", label: "Tunnel Wave" },
   { value: "cloud", label: "Particle Cloud" },
   { value: "aurora", label: "Aurora" },
 ];
 type VisualizerType = typeof visualizerOptions[number]["value"];
-type Song = File | { name: string; url: string };
 
 function formatTime(s: number) {
   if (isNaN(s)) return "0:00";
@@ -27,10 +33,8 @@ function formatTime(s: number) {
   return `${min}:${sec}`;
 }
 
-// Custom hook: Tạo objectURL cho File, tự revoke khi đổi hoặc unmount
 function useObjectUrl(file: File | null) {
   const [url, setUrl] = useState<string>("");
-
   useEffect(() => {
     if (!file) {
       setUrl("");
@@ -42,21 +46,21 @@ function useObjectUrl(file: File | null) {
       URL.revokeObjectURL(objUrl);
     };
   }, [file]);
-
   return url;
 }
 
 export default function App() {
-  // Playlist & State
+  // State
   const [playlist, setPlaylist] = useState<Song[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const currentSong = playlist[currentIndex] || null;
   const [showPlaylist, setShowPlaylist] = useState(true);
   const [showEffectMenu, setShowEffectMenu] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showYTSearch, setShowYTSearch] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [volume, setVolume] = useState(0.7);
-  const [visualizerType, setVisualizerType] = useState<VisualizerType>("cloud"); // Default: cloud
+  const [visualizerType, setVisualizerType] = useState<VisualizerType>("cloud");
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [repeat, setRepeat] = useState(false);
@@ -74,25 +78,51 @@ export default function App() {
   const artistName = "Unknown Artist";
 
   // File/URL for current song
-  const fileSong = currentSong instanceof File ? currentSong : null;
+  const fileSong =
+    currentSong && !(typeof currentSong === "object" && "youtubeId" in currentSong)
+      ? currentSong instanceof File
+        ? currentSong
+        : null
+      : null;
   const fileSongUrl = useObjectUrl(fileSong);
   const audioSource =
     fileSongUrl ||
-    (currentSong && typeof currentSong === "object" && "url" in currentSong
+    (currentSong &&
+    typeof currentSong === "object" &&
+    "url" in currentSong &&
+    !("youtubeId" in currentSong)
       ? currentSong.url
       : "");
 
-  // Audio hook
-  const { frequencyData, isPlaying, audioElement, gainNode } = useAudioAnalyser(audioSource);
+  // Check bài hiện tại là YouTube?
+  const isYouTube =
+    currentSong &&
+    typeof currentSong === "object" &&
+    "youtubeId" in currentSong &&
+    currentSong.type === "youtube";
+
+  // Hook phân tích audio thật (mp3/local)
+  const {
+    frequencyData: realFrequencyData,
+    isPlaying,
+    audioElement,
+    gainNode
+  } = useAudioAnalyser(isYouTube ? "" : audioSource);
+
+  // Dữ liệu tần số giả cho YouTube (nên để 128 hoặc tuỳ visualizer)
+  const fakeFrequencyData = useFakeFrequencyData(128);
+
+  // Dữ liệu đưa vào visualizer: thật nếu mp3, giả nếu YouTube
+  const visualizerFrequencyData = isYouTube ? fakeFrequencyData : realFrequencyData;
 
   // Volume (gain)
   useEffect(() => {
     if (gainNode) gainNode.gain.value = volume;
   }, [gainNode, volume]);
 
-  // Sync currentTime/duration
+  // Sync currentTime/duration (mp3/local only)
   useEffect(() => {
-    if (!audioElement) return;
+    if (!audioElement || isYouTube) return;
     const update = () => {
       setCurrentTime(audioElement.currentTime);
       setDuration(audioElement.duration || 0);
@@ -103,27 +133,25 @@ export default function App() {
       audioElement.removeEventListener("timeupdate", update);
       audioElement.removeEventListener("loadedmetadata", update);
     };
-  }, [audioElement]);
+  }, [audioElement, isYouTube]);
 
   // Auto play mỗi khi đổi bài hoặc audio element mới
   useEffect(() => {
-    if (audioElement && playlist.length > 0) {
+    if (audioElement && playlist.length > 0 && !isYouTube) {
       audioElement.currentTime = 0;
-      // auto play, ignore promise nếu bị browser block (user chưa từng tương tác)
       audioElement.play().catch(() => {});
     }
-    // eslint-disable-next-line
-  }, [audioElement, currentSong]);
+  }, [audioElement, currentSong, playlist.length, isYouTube]);
 
-  // Seek nhạc
+  // Seek nhạc (mp3/local only)
   const handleSeek = (val: number) => {
-    if (audioElement) audioElement.currentTime = val;
+    if (audioElement && !isYouTube) audioElement.currentTime = val;
     setCurrentTime(val);
   };
 
-  // Play/pause
+  // Play/pause (mp3/local only)
   const handlePlayPause = () => {
-    if (!currentSong || !audioElement) return;
+    if (!currentSong || !audioElement || isYouTube) return;
     if (isPlaying) audioElement.pause();
     else audioElement.play();
   };
@@ -132,7 +160,7 @@ export default function App() {
   const handlePrev = () => {
     if (currentIndex > 0) {
       setCurrentIndex(idx => idx - 1);
-    } else if (audioElement) {
+    } else if (audioElement && !isYouTube) {
       audioElement.currentTime = 0;
     }
   };
@@ -161,7 +189,6 @@ export default function App() {
       if (playlist.length === 0 && files.length > 0) setCurrentIndex(0);
       setShowAddMenu(false);
 
-      // Đợi render xong rồi play luôn
       setTimeout(() => {
         const audio = document.querySelector("audio");
         if (audio) audio.play().catch(() => {});
@@ -180,7 +207,6 @@ export default function App() {
       setCurrentIndex(0);
       setShowAddMenu(false);
 
-      // Đợi render xong rồi play luôn
       setTimeout(() => {
         const audio = document.querySelector("audio");
         if (audio) audio.play().catch(() => {});
@@ -194,7 +220,7 @@ export default function App() {
 
   // Khi hết bài, auto next bài tiếp theo (nếu có)
   useEffect(() => {
-    if (!audioElement) return;
+    if (!audioElement || isYouTube) return;
     const handleEnded = () => {
       if (shuffle && playlist.length > 1) {
         let next;
@@ -210,23 +236,23 @@ export default function App() {
     };
     audioElement.addEventListener("ended", handleEnded);
     return () => audioElement.removeEventListener("ended", handleEnded);
-  }, [audioElement, playlist.length, currentIndex, repeat, shuffle]);
+  }, [audioElement, playlist.length, currentIndex, repeat, shuffle, isYouTube]);
 
   // Close menu khi click ra ngoài
   useEffect(() => {
     const onClick = () => {
       setShowEffectMenu(false);
       setShowAddMenu(false);
+      setShowYTSearch(false);
     };
-    if (showEffectMenu || showAddMenu) {
+    if (showEffectMenu || showAddMenu || showYTSearch) {
       window.addEventListener("click", onClick);
       return () => window.removeEventListener("click", onClick);
     }
-  }, [showEffectMenu, showAddMenu]);
+  }, [showEffectMenu, showAddMenu, showYTSearch]);
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-[#11101d] via-[#23243a] to-[#120a16]">
-
       {/* Floating menu góc phải */}
       <div className="fixed top-6 right-10 z-50 flex flex-col items-end gap-3">
         {/* Nút icon Visualizer */}
@@ -236,10 +262,7 @@ export default function App() {
             onClick={e => { e.stopPropagation(); setShowEffectMenu(v => !v); }}
             title="Select Visualizer"
           >
-            <svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="11" stroke="#a78bfa" strokeWidth="2"/>
-              <path d="M12 6v5l3 2" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <Eye className="w-6 h-6 text-indigo-300" />
           </button>
           {showEffectMenu && (
             <div className="absolute top-12 right-0 bg-[#23243a] rounded-xl shadow-xl border border-indigo-800 p-2 min-w-[160px] z-50 animate-fade-in"
@@ -268,6 +291,14 @@ export default function App() {
             <span className="text-indigo-300 text-xs font-bold">PL</span>
           </button>
         )}
+        {/* Nút mở YouTube Search */}
+        <button
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-black/50 border border-indigo-400 hover:bg-indigo-800 transition"
+          onClick={e => { e.stopPropagation(); setShowYTSearch(v => !v); }}
+          title="Add online music"
+        >
+          <Music className="w-6 h-6 text-indigo-200" />
+        </button>
         {/* Playlist */}
         {showPlaylist && playlist.length > 0 && (
           <div className="w-80 max-h-96 bg-black/50 rounded-xl shadow px-4 py-3 backdrop-blur-lg border border-indigo-700/50 mt-2">
@@ -281,9 +312,11 @@ export default function App() {
                     ${i === currentIndex ? "bg-indigo-700/60 text-white font-bold" : "hover:bg-indigo-900/30 text-slate-300"}`}
                 >
                   <span className="truncate flex-1">
-                    {"name" in song
-                      ? (song as { name: string }).name
-                      : (song as File).name.replace(/\.[^/.]+$/, "")
+                    {"youtubeId" in (song as any)
+                      ? (song as any).name + " (YouTube)"
+                      : "name" in song
+                        ? (song as { name: string }).name
+                        : (song as File).name.replace(/\.[^/.]+$/, "")
                     }
                   </span>
                   {i === currentIndex && <span className="text-indigo-200 text-xs">●</span>}
@@ -292,21 +325,31 @@ export default function App() {
             </ul>
           </div>
         )}
+        {/* YouTube SearchBar popup */}
+        {showYTSearch && (
+          <YouTubeSearchBar
+            onAddToPlaylist={song => {
+              setPlaylist(prev => [...prev, song]);
+              if (playlist.length === 0) setCurrentIndex(0);
+            }}
+            onClose={() => setShowYTSearch(false)}
+          />
+        )}
       </div>
 
       {/* Main 3D canvas */}
       <Canvas camera={{ position: [0, 2, 8], fov: 60 }}>
         <ambientLight intensity={1} />
-        {frequencyData && (
+        {visualizerFrequencyData && (
           <>
             {visualizerType === "tunnel" && (
-              <AudioTunnelWaveVisualizer frequencyData={frequencyData} />
+              <AudioTunnelWaveVisualizer frequencyData={visualizerFrequencyData} />
             )}
             {visualizerType === "cloud" && (
-              <AudioParticleCloudVisualizer frequencyData={frequencyData} />
+              <AudioParticleCloudVisualizer frequencyData={visualizerFrequencyData} />
             )}
             {visualizerType === "aurora" && (
-              <LayeredAuroraParticlesVisualizer frequencyData={frequencyData} />
+              <LayeredAuroraParticlesVisualizer frequencyData={visualizerFrequencyData} />
             )}
           </>
         )}
@@ -316,6 +359,22 @@ export default function App() {
         </EffectComposer>
         <CameraResetter visualizerType={visualizerType} controlsRef={controlsRef} />
       </Canvas>
+
+      {/* Hiện iframe nhỏ góc phải dưới nếu đang là bài YouTube */}
+      {isYouTube && (
+        <div className="fixed bottom-6 right-8 z-50 shadow-2xl rounded-xl overflow-hidden border-2 border-indigo-800 bg-black/90">
+          <iframe
+            width={320}
+            height={180}
+            src={`https://www.youtube.com/embed/${(currentSong as any).youtubeId}?autoplay=1&controls=1`}
+            frameBorder={0}
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+            title={songName}
+            className="block"
+          />
+        </div>
+      )}
 
       {/* Music Controls UI */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center w-full">
@@ -342,8 +401,8 @@ export default function App() {
             <SkipBack className="w-6 h-6 text-indigo-300" />
           </button>
           <button
-            disabled={!currentSong}
-            className={`p-3 rounded-full bg-indigo-600 shadow-lg hover:scale-110 transition ${!currentSong ? "opacity-40 cursor-not-allowed" : ""}`}
+            disabled={!currentSong || isYouTube}
+            className={`p-3 rounded-full bg-indigo-600 shadow-lg hover:scale-110 transition ${!currentSong || isYouTube ? "opacity-40 cursor-not-allowed" : ""}`}
             onClick={handlePlayPause}
             title={isPlaying ? "Pause" : "Play"}
           >
@@ -410,35 +469,39 @@ export default function App() {
             />
           </div>
         </div>
-        {/* Seekbar */}
-        <div className="flex items-center w-[380px] max-w-full gap-3 mt-3">
-          <span className="text-xs text-slate-300 w-9 text-right">{formatTime(currentTime)}</span>
-          <input
-            type="range"
-            min={0}
-            max={duration}
-            value={currentSong ? currentTime : 0}
-            onChange={e => handleSeek(Number(e.target.value))}
-            disabled={!currentSong}
-            className={`flex-1 accent-indigo-500 h-2 rounded-full ${!currentSong ? "opacity-40 cursor-not-allowed" : ""}`}
-          />
-          <span className="text-xs text-slate-300 w-9">{formatTime(duration)}</span>
-        </div>
-        {/* Volume */}
-        <div className="flex items-center gap-2 mt-2">
-          <Volume2 className="w-5 h-5 text-indigo-300" />
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onChange={e => setVolume(+e.target.value)}
-            className="accent-indigo-400"
-            style={{ width: 90 }}
-            disabled={!currentSong}
-          />
-        </div>
+        {/* Seekbar (chỉ cho mp3/local, không cho YouTube) */}
+        {!isYouTube && (
+          <>
+            <div className="flex items-center w-[380px] max-w-full gap-3 mt-3">
+              <span className="text-xs text-slate-300 w-9 text-right">{formatTime(currentTime)}</span>
+              <input
+                type="range"
+                min={0}
+                max={duration}
+                value={currentSong ? currentTime : 0}
+                onChange={e => handleSeek(Number(e.target.value))}
+                disabled={!currentSong}
+                className={`flex-1 accent-indigo-500 h-2 rounded-full ${!currentSong ? "opacity-40 cursor-not-allowed" : ""}`}
+              />
+              <span className="text-xs text-slate-300 w-9">{formatTime(duration)}</span>
+            </div>
+            {/* Volume */}
+            <div className="flex items-center gap-2 mt-2">
+              <Volume2 className="w-5 h-5 text-indigo-300" />
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={volume}
+                onChange={e => setVolume(+e.target.value)}
+                className="accent-indigo-400"
+                style={{ width: 90 }}
+                disabled={!currentSong}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Custom scrollbar CSS */}
