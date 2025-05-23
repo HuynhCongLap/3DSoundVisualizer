@@ -386,10 +386,17 @@ export default function App() {
               <div className="text-sm text-indigo-300">{artistName}</div>
             </>
           ) : (
-            <div className="text-slate-400 text-base italic">
-              No song selected — Click
-              <span className="inline-block px-2 py-1 bg-indigo-700/60 rounded-lg mx-1 text-white font-semibold">+</span>
-              to add music
+            <div className="text-slate-400 text-base italic flex items-center justify-center gap-1">
+              No song selected —
+              <span>
+                Use
+                <span className="inline-block px-2 py-1 bg-indigo-700/60 rounded-lg mx-1 text-white font-semibold align-middle">+</span>
+                to upload music, or
+                <span className="inline-block align-middle mx-1">
+                  <Music className="inline-block w-5 h-5 text-indigo-300" />
+                </span>
+                to add from YouTube.
+              </span>
             </div>
           )}
         </div>
